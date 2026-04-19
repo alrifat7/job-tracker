@@ -1,85 +1,108 @@
 let currentTab = "all";
 
-const tabActive = ["bg-blue-900", "text-white"];
+const tabActive   = ["bg-blue-900", "text-white"];
 const tabInactive = ["bg-white", "text-gray-700"];
 
+// ─── Badge config ────────────────────────────────────────────────
+const badgeConfig = {
+  all:       { text: "NOT APPLIED", textCls: "text-blue-900",  bgCls: "bg-blue-50"  },
+  interview: { text: "INTERVIEW",   textCls: "text-green-700", bgCls: "bg-green-50" },
+  rejected:  { text: "REJECTED",    textCls: "text-red-700",   bgCls: "bg-red-50"   },
+};
+
+// ─── Tab switching ───────────────────────────────────────────────
 function switchTab(tab) {
-    currentTab = tab;
-
-    const tabs = ["all", "interview", "rejected"];
-
-    tabs.forEach(t => {
-        const el = document.getElementById("tab-" + t);
-        if (!el) return;
-
-        el.classList.remove(...tabActive, ...tabInactive);
-
-        if (t === tab) {
-            el.classList.add(...tabActive);
-        } else {
-            el.classList.add(...tabInactive);
-        }
-    });
-
-    filterCards();
+  currentTab = tab;
+  ["all", "interview", "rejected"].forEach(t => {
+    const el = document.getElementById("tab-" + t);
+    if (!el) return;
+    el.classList.remove(...tabActive, ...tabInactive);
+    el.classList.add(...(t === tab ? tabActive : tabInactive));
+  });
+  filterCards();
 }
 
+// ─── Filter + empty state ────────────────────────────────────────
 function filterCards() {
-    const cards = document.querySelectorAll(".card");
+  const cards = document.querySelectorAll(".card");
+  let visibleCount = 0;
 
-    cards.forEach(card => {
-        const status = card.dataset.status;
+  cards.forEach(card => {
+    const show = currentTab === "all" || card.dataset.status === currentTab;
+    card.style.display = show ? "flex" : "none";
+    if (show) visibleCount++;
+  });
 
-        if (currentTab === "all" || currentTab === status) {
-            card.style.display = "flex";
-        } else {
-            card.style.display = "none";
-        }
-    });
+  // Empty state
+  const emptyState = document.getElementById("emptyState");
+  if (visibleCount === 0) {
+    emptyState.classList.remove("hidden");
+    emptyState.classList.add("flex");
+  } else {
+    emptyState.classList.add("hidden");
+    emptyState.classList.remove("flex");
+  }
 
-    updateCounts();
+  updateCounts(visibleCount);
 }
 
-function updateCounts() {
-    const cards = document.querySelectorAll(".card");
+// ─── Count updates ───────────────────────────────────────────────
+function updateCounts(visibleCount) {
+  const cards = [...document.querySelectorAll(".card")];
+  const total      = cards.length;
+  const interview  = cards.filter(c => c.dataset.status === "interview").length;
+  const rejected   = cards.filter(c => c.dataset.status === "rejected").length;
 
-    let total = cards.length;
-    let interview = 0;
-    let rejected = 0;
+  document.getElementById("total").innerText         = total;
+  document.getElementById("interviewCount").innerText = interview;
+  document.getElementById("rejectedCount").innerText  = rejected;
 
-    cards.forEach(card => {
-        if (card.dataset.status === "interview") interview++;
-        if (card.dataset.status === "rejected") rejected++;
-    });
+  // Tab header count: reflects current tab scope
+  const tabCount =
+    currentTab === "interview" ? interview :
+    currentTab === "rejected"  ? rejected  :
+    total;
 
-    document.getElementById("total").innerText = total;
-    document.getElementById("interviewCount").innerText = interview;
-    document.getElementById("rejectedCount").innerText = rejected;
-    document.getElementById("tabJobCount").innerText = total;
+  document.getElementById("tabJobCount").innerText = tabCount;
 }
 
-// Buttons
+// ─── Badge update ────────────────────────────────────────────────
+function updateBadge(card, status) {
+  const badge = card.querySelector(".status-badge");
+  if (!badge) return;
+  const cfg = badgeConfig[status] || badgeConfig.all;
+
+  // Reset colour classes
+  badge.classList.remove(
+    "text-blue-900", "bg-blue-50",
+    "text-green-700", "bg-green-50",
+    "text-red-700", "bg-red-50"
+  );
+  badge.classList.add(cfg.textCls, cfg.bgCls);
+  badge.textContent = cfg.text;
+}
+
+// ─── Event delegation ────────────────────────────────────────────
 document.addEventListener("click", function (e) {
+  const card = e.target.closest(".card");
 
-    if (e.target.classList.contains("interview-btn")) {
-        const card = e.target.closest(".card");
-        card.dataset.status = "interview";
-        filterCards();
-    }
+  if (e.target.classList.contains("interview-btn") && card) {
+    card.dataset.status = "interview";
+    updateBadge(card, "interview");
+    filterCards();
+  }
 
-    if (e.target.classList.contains("rejected-btn")) {
-        const card = e.target.closest(".card");
-        card.dataset.status = "rejected";
-        filterCards();
-    }
+  if (e.target.classList.contains("rejected-btn") && card) {
+    card.dataset.status = "rejected";
+    updateBadge(card, "rejected");
+    filterCards();
+  }
 
-    if (e.target.closest(".delete-btn")) {
-        const card = e.target.closest(".card");
-        card.remove();
-        filterCards();
-    }
+  if (e.target.closest(".btn-delete") && card) {
+    card.remove();
+    filterCards();
+  }
 });
 
-document.addEventListener("DOMContentLoaded", () => {
-    switchTab("all");
-});
+// ─── Init ────────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => switchTab("all"));
